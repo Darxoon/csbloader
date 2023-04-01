@@ -58,6 +58,10 @@ export class BinaryReader {
 		this.position = position
 	}
 	
+	alignTo(alignment: number) {
+		this.position += ((alignment - this.position) % alignment + alignment) % alignment
+	}
+	
 	readFloat32(): number {
 		let value = this.dataView.getFloat32(this.position, this.littleEndian)
 		this.position += 4
@@ -158,6 +162,14 @@ export class BinaryWriter {
 	
 	get capacity(): number {
 		return this.dataView.byteLength
+	}
+	
+	alignTo(alignment: number) {
+		this.size += ((alignment - this.size) % alignment + alignment) % alignment
+		
+		if (this.size >= this.capacity) {
+			this.reserve(this.capacity * 2)
+		}
 	}
 	
 	toArrayBuffer(): ArrayBuffer {
