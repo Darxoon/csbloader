@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "description": "Loads Paper Mario's CSB files into Wavefront obj's.",
   "scripts": {
-    "start": "node dist/index.js"
+    "dev": "tsc -w",
+    "install": "npm install && tsc && npm link"
   },
   "author": "Darxoon",
   "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "@types/node": "^18.15.11"
+    "@types/node": "^18.15.11",
+    "typescript": "^5.0.3"
   },
   "bin": {
     "csbloader": "dist/index.js"
