@@ -1,4 +1,5 @@
 import { BinaryReader, Vector3 } from "./misc.js";
+import { readVector3 } from "./util.js";
 
 export class VertexGroupHeader {
 	field_0x0: number
@@ -9,7 +10,7 @@ export class VertexGroupHeader {
 	field_0x14: number
 	name: string
 	field_0x58: number
-	field_0x5c: number
+	vertexAmount: number
 	triAmount: number
 	field_0x64: number
 	field_0x68: number
@@ -36,7 +37,7 @@ export class VertexGroupHeader {
 		reader.position += 64
 		
 		header.field_0x58 = reader.readInt32()
-		header.field_0x5c = reader.readInt32()
+		header.vertexAmount = reader.readInt32()
 		header.triAmount  = reader.readInt32()
 		header.field_0x64 = reader.readInt32()
 		header.field_0x68 = reader.readInt32()
@@ -72,55 +73,43 @@ export class Tri {
 
 export class VertexGroup {
 	header: VertexGroupHeader
+	otherVectors: Vector3[]
 	vertices: Vector3[]
 	faces: Tri[]
 	
-	constructor(header: VertexGroupHeader, vertices: Vector3[], faces: Tri[]) {
+	constructor(header: VertexGroupHeader, otherVectors: Vector3[], vertices: Vector3[], faces: Tri[]) {
 		this.header = header
+		this.otherVectors = otherVectors
 		this.vertices = vertices;
 		this.faces = faces;
 	}
 	
 	static fromBinaryReader(reader: BinaryReader) {
 		let header = VertexGroupHeader.fromBinaryReader(reader)
-		let vertices: Vector3[] = []
 		
-		while (true) {
-			let pos = reader.position
-			let x = reader.readInt16()
-			let y = reader.readInt16()
-			let z = reader.readInt16()
-			
-			reader.seek(pos)
-			
-			// if the three 4-byte sequences make sense as integers and as indices into the vertex array,
-			// then this is already a tri and we should revert back to its beginning to parse it as a Tri
-			// otherwise, this is a Vector3 and we should revert back and iterpret the values as floats
-			// if x == 3, then we are already at the next group header, since they always start with 0x3
-			let numbersAreIndices = x in vertices && y in vertices && z in vertices
-			let numbersAreAllZero = x == 0 && y == 0 && z == 0
-			
-			if (numbersAreIndices && !numbersAreAllZero || x == 3) {
-				break
-			}
-			
-			x = reader.readFloat32()
-			y = reader.readFloat32()
-			z = reader.readFloat32()
-			
-			vertices.push(new Vector3(x, y, z))
+		let otherVectors: Vector3[]
+		let vertices: Vector3[]
+		
+		if (header.vertexAmount == 0) {
+			otherVectors = Array.from({ length: 6 }, () => readVector3(reader))
+			vertices = []
+		} else {
+			otherVectors = Array.from({ length: 3 }, () => readVector3(reader))
+			vertices = Array.from({ length: header.vertexAmount }, () => readVector3(reader))
 		}
 		
 		let faces = Array.from({ length: header.triAmount }, () => Tri.fromBinaryReader(reader))
 		
-		return new VertexGroup(header, vertices, faces)
+		return new VertexGroup(header, otherVectors, vertices, faces)
 	}
 }
 
 export class CollisionBinary {
 	vertexGroups: VertexGroup[]
+	otherVectors: Vector3[]
 	
-	constructor(vertexGroups: VertexGroup[]) {
+	constructor(vertexGroups: VertexGroup[], otherVectors: Vector3[]) {
 		this.vertexGroups = vertexGroups;
+		this.otherVectors = otherVectors
 	}
 }

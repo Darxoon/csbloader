@@ -1,7 +1,7 @@
-import { writeFileSync } from "fs";
 import BoyerMoore from "./boyermoore.js";
 import { BinaryReader } from "./misc.js";
 import { CollisionBinary, VertexGroup } from "./types.js";
+import { readVector3 } from "./util.js";
 
 export function parseCSB(buffer: ArrayBuffer): CollisionBinary {
 	// skip long and weird header and skip to the string section
@@ -11,32 +11,50 @@ export function parseCSB(buffer: ArrayBuffer): CollisionBinary {
 	
 	// skip forward to the end of the string section
 	while (true) {
-		let read = reader.readInt16()
-		
-		if (read == 0)
+		if (reader.readInt16() == 0 && reader.readInt8() == 0)
 			break
 	}
 	
-	reader.position -= 2
+	reader.position -= 3
 	reader.alignTo(4)
 	
 	let vertexGroupCount = reader.readInt32() >> 16
+	let definedGroupCount = countDefinedGroups(reader, vertexGroupCount)
 	
-	// skip vertex group header information
-	// this part contains 4 bytes for every vertex group:
-	// 1 byte - the index of the group, this literally just counts up
-	// 1 byte - ?
-	// 1 byte - seems to indicate whether the group's name is in the group (1) or in the string section (0)
-	// 1 byte - ?
-	reader.position += vertexGroupCount * 4
+	let groups = Array.from({ length: definedGroupCount }, () => VertexGroup.fromBinaryReader(reader))
 	
-	let groups = Array.from({ length: vertexGroupCount }, () => VertexGroup.fromBinaryReader(reader))
+	let otherVectors = definedGroupCount == 1 ? Array.from({ length: 3 }, () => readVector3(reader)) : []
 	
-	return new CollisionBinary(groups)
+	return new CollisionBinary(groups, otherVectors)
 }
 
 function findCollisionString(buffer: ArrayBuffer) {
 	let boyerMoore = new BoyerMoore(new TextEncoder().encode('Collision'))
 	let result = boyerMoore.findIndex(buffer)
 	return result
+}
+
+function countDefinedGroups(reader: BinaryReader, vertexGroupCount: number): number {
+	// starts at 1 because DEADBEEF vertex group is always defined but it is not marked as such
+	let definedGroupCount = 1
+	
+	// this part contains 4 bytes for every vertex group:
+	// first byte - the index of the group, this literally just counts up
+	// second byte - ?
+	// third byte - seems to be either 0, 1 or 3. 1 means that the vertex group is defined in the file
+	// fourth byte - ?
+	for (let i = 0; i < vertexGroupCount; i++) {
+		let id = reader.readUint16()
+		
+		let x = reader.readInt8()
+		
+		if (x == 1) {
+			definedGroupCount += 1
+			console.log('defined', i, id.toString(16))
+		}
+		
+		reader.position += 1
+	}
+	
+	return definedGroupCount
 }

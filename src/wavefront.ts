@@ -24,7 +24,7 @@ export function serializeWavefrontObj(binary: CollisionBinary): string {
 		if (group.faces.length == 0)
 			continue
 		
-		const offset = groupVertexOffsets.get(group) + 4
+		const offset = groupVertexOffsets.get(group) + 1
 		output += `o ${group.header.name}\n`
 		
 		for (const face of group.faces) {

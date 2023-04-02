@@ -14,7 +14,7 @@ import { serializeWavefrontObj } from "./wavefront.js";
 	}
 	
 	if (a == '-v' || a == '--version' || b == '-v' || b == '--version') {
-		console.log('v1.0')
+		console.log('v1.0.1')
 		exit()
 	}
 	
