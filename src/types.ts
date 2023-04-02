@@ -7,7 +7,7 @@ export class VertexGroupHeader {
 	field_0xc: number
 	field_0x10: number
 	field_0x14: number
-	id: string
+	name: string
 	field_0x58: number
 	field_0x5c: number
 	triAmount: number
@@ -32,7 +32,7 @@ export class VertexGroupHeader {
 		let idWithNulls = new TextDecoder().decode(idBuffer)
 		let id = idWithNulls.slice(0, idWithNulls.indexOf('\0'))
 		
-		header.id = id
+		header.name = id
 		reader.position += 64
 		
 		header.field_0x58 = reader.readInt32()
