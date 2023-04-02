@@ -13,6 +13,8 @@ export function parseCSB(buffer: ArrayBuffer): CollisionBinary {
 	while (true) {
 		if (reader.readInt16() == 0 && reader.readInt8() == 0)
 			break
+		else
+			reader.position -= 1
 	}
 	
 	reader.position -= 3
@@ -50,7 +52,6 @@ function countDefinedGroups(reader: BinaryReader, vertexGroupCount: number): num
 		
 		if (x == 1) {
 			definedGroupCount += 1
-			console.log('defined', i, id.toString(16))
 		}
 		
 		reader.position += 1
