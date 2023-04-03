@@ -14,11 +14,11 @@ These files can be treated like usual model files, e.g., be opened in Blender.
 
 ## Installation
 
-Make sure you have the latest node.js LTS Version and NPM installed.
+Make sure you have the latest node.js LTS Version, NPM and TypeScript installed.
 
-Open the Command Line in a convenient location, clone the repository with ```git clone https://github.com/Darxoon/csbloader``` and enter the new directory.
+Open the Command Prompt, Git Bash or a Shell in a convenient location (not PowerShell), clone the repository with ```git clone https://github.com/Darxoon/csbloader``` and enter the new directory.
 
-Type ```npm run install``` to build the program and have access to the csbloader command at all times in any location in the command line.
+Type ```npm install && tsc && npm link``` to build the program and have access to the csbloader command at all times in any location in the command line.
 
 ## Contact
 
