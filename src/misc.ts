@@ -1,3 +1,5 @@
+/* Darxoon binary stuff v2 */
+
 export class Vector3 {
 	private readonly _x: number
 	private readonly _y: number
@@ -30,6 +32,20 @@ export class Vector3 {
 	}
 	
 	static ZERO = new Vector3(0, 0, 0)
+	
+	static fromBinaryReader(reader: BinaryReader) {
+		return new Vector3(
+			reader.readFloat32(),
+			reader.readFloat32(),
+			reader.readFloat32(),
+		)
+	}
+	
+	toBinaryWriter(writer: BinaryWriter) {
+		writer.writeFloat32(this._x)
+		writer.writeFloat32(this._y)
+		writer.writeFloat32(this._z)
+	}
 }
 
 export class BinaryReader {
@@ -47,7 +63,9 @@ export class BinaryReader {
 			this.dataView = buffer
 		} else if (buffer instanceof Uint8Array) {
 			this.arrayBuffer = buffer.buffer
-			this.dataView = new DataView(buffer)
+			this.dataView = new DataView(buffer.buffer)
+		} else {
+			throw new TypeError(`Argument buffer is not an ArrayBuffer, DataView or Uint8Array`)
 		}
 		
 		this.littleEndian = littleEndian
@@ -146,17 +164,19 @@ export class BinaryWriter {
 		this.size = buffer ? buffer.byteLength : 0
 		this.littleEndian = littleEndian
 		
-		buffer = buffer ?? new ArrayBuffer(MIN_CAPACITY)
+		buffer ??= new ArrayBuffer(MIN_CAPACITY)
 		
-		if (buffer instanceof ArrayBuffer) {
+		if (buffer instanceof Uint8Array) {
+			this.arrayBuffer = buffer.buffer
+			this.dataView = new DataView(buffer.buffer)
+		} else if (buffer instanceof ArrayBuffer) {
 			this.arrayBuffer = buffer
 			this.dataView = new DataView(buffer)
 		} else if (buffer instanceof DataView) {
 			this.arrayBuffer = buffer.buffer
 			this.dataView = buffer
-		} else if (buffer instanceof Uint8Array) {
-			this.arrayBuffer = buffer.buffer
-			this.dataView = new DataView(buffer)
+		} else {
+			throw new TypeError("Argument buffer is not an ArrayBuffer, DataView or Uint8Array")
 		}
 	}
 	

@@ -1,4 +1,4 @@
-// https://codereview.stackexchange.com/a/192136
+// https://codereview.stackexchange.com/a/192136, modified by Darxoon
 
 type needleType = string | Uint8Array | ArrayBuffer;
 type haystackType = ArrayBuffer | Uint8Array;
@@ -77,7 +77,7 @@ export default class BoyerMoore {
 
     function boyerMooreSearch(txtBuffer: needleType, start: number = 0, end?: number): number {
       // Return offset of first match, -1 if no match.
-      const text = this.asUint8Array(txtBuffer);
+      const text: Uint8Array = this.asUint8Array(txtBuffer);
 
       if (end === undefined) {
         end = text.length;
