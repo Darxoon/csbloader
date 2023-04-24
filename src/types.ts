@@ -71,15 +71,80 @@ export class Tri {
 	}
 }
 
+export class BoundingBox {
+	low: Vector3
+	high: Vector3
+	
+	constructor(low: Vector3, high: Vector3) {
+		this.low = low
+		this.high = high
+	}
+	
+	/**
+	 * Verifies if a bounding box contains the correct coordinates.
+	 * @param vertices All vertices included in the bounding box
+	 * @returns Returns true if the bounds are correct, otherwise returns the correct bounding box
+	 */
+	verifyCorrectBounds(vertices: Vector3[]): true | BoundingBox {
+		if (vertices.length == 0)
+			return true
+		
+		// because vector3s are immutable, this is the only way to prevent a lot of allocations
+		let smallestCoordinatesX = vertices[0].x
+		let smallestCoordinatesY = vertices[0].y
+		let smallestCoordinatesZ = vertices[0].z
+		let biggestCoordinatesX = vertices[0].x
+		let biggestCoordinatesY = vertices[0].y
+		let biggestCoordinatesZ = vertices[0].z
+		
+		for (const vertex of vertices) {
+			if (vertex.x < smallestCoordinatesX)
+				smallestCoordinatesX = vertex.x
+			if (vertex.y < smallestCoordinatesY)
+				smallestCoordinatesY = vertex.y
+			if (vertex.z < smallestCoordinatesZ)
+				smallestCoordinatesZ = vertex.z
+			
+			if (vertex.x > biggestCoordinatesX)
+				biggestCoordinatesX = vertex.x
+			if (vertex.y > biggestCoordinatesY)
+				biggestCoordinatesY = vertex.y
+			if (vertex.z > biggestCoordinatesZ)
+				biggestCoordinatesZ = vertex.z
+		}
+		
+		let smallestCoordinates = new Vector3(smallestCoordinatesX, smallestCoordinatesY, smallestCoordinatesZ)
+		let biggestCoordinates = new Vector3(biggestCoordinatesX, biggestCoordinatesY, biggestCoordinatesZ)
+		
+		let lowIsCorrect = this.low.equals(smallestCoordinates)
+		let highIsCorrect = this.high.equals(biggestCoordinates)
+		
+		return (lowIsCorrect && highIsCorrect) || new BoundingBox(smallestCoordinates, biggestCoordinates)
+	}
+	
+	toString() {
+		return `BoundingBox(${this.low} -> ${this.high})`
+	}
+	
+	static fromBinaryReader(reader: BinaryReader) {
+		return new BoundingBox(
+			Vector3.fromBinaryReader(reader),
+			Vector3.fromBinaryReader(reader),
+		)
+	}
+}
+
 export class VertexGroup {
 	header: VertexGroupHeader
-	otherVectors: Vector3[]
+	otherVector?: Vector3
+	boundingBox: BoundingBox
 	vertices: Vector3[]
 	faces: Tri[]
 	
-	constructor(header: VertexGroupHeader, otherVectors: Vector3[], vertices: Vector3[], faces: Tri[]) {
+	constructor(header: VertexGroupHeader, otherVector: Vector3 | undefined, boundingBox: BoundingBox, vertices: Vector3[], faces: Tri[]) {
 		this.header = header
-		this.otherVectors = otherVectors
+		this.otherVector = otherVector
+		this.boundingBox = boundingBox
 		this.vertices = vertices;
 		this.faces = faces;
 	}
@@ -87,20 +152,35 @@ export class VertexGroup {
 	static fromBinaryReader(reader: BinaryReader) {
 		let header = VertexGroupHeader.fromBinaryReader(reader)
 		
-		let otherVectors: Vector3[]
+		let otherVector: Vector3 | undefined = undefined
+		let boundingBox: BoundingBox
 		let vertices: Vector3[]
 		
 		if (header.vertexAmount == 0) {
-			otherVectors = Array.from({ length: 6 }, () => readVector3(reader))
+			for (let i = 0; i < 3; i++) {
+				if (!readVector3(reader).equals(Vector3.ZERO))
+					throw new Error("Invalid file: vertex group does not start with three (0, 0, 0) vectors")
+			}
+			
+			otherVector = readVector3(reader)
+			boundingBox = BoundingBox.fromBinaryReader(reader)
 			vertices = []
 		} else {
-			otherVectors = Array.from({ length: 3 }, () => readVector3(reader))
+			if (!readVector3(reader).equals(Vector3.ZERO))
+				throw new Error("Invalid file: vertex group does not start with (0, 0, 0)")
+			
+			boundingBox = BoundingBox.fromBinaryReader(reader)
 			vertices = Array.from({ length: header.vertexAmount }, () => readVector3(reader))
 		}
 		
+		let verifiedBoundingBox = boundingBox.verifyCorrectBounds(vertices)
+		
+		if (verifiedBoundingBox !== true)
+			throw new Error(`Invalid bounding box: should be ${verifiedBoundingBox} when it actually is ${boundingBox}`)
+		
 		let faces = Array.from({ length: header.triAmount }, () => Tri.fromBinaryReader(reader))
 		
-		return new VertexGroup(header, otherVectors, vertices, faces)
+		return new VertexGroup(header, otherVector, boundingBox, vertices, faces)
 	}
 }
 

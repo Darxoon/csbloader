@@ -19,6 +19,10 @@ export class Vector3 {
 		return other instanceof Vector3 && this._x === other._x && this._y === other._y && this._z === other._z
 	}
 	
+	equalsCoordinates(x: number, y: number, z: number) {
+		return x == this._x && y == this._y && z == this._z
+	}
+	
 	get x() {
 		return this._x
 	}
