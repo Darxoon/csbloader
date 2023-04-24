@@ -187,9 +187,11 @@ export class VertexGroup {
 export class CollisionBinary {
 	vertexGroups: VertexGroup[]
 	otherVectors: Vector3[]
+	isSerializable: boolean
 	
-	constructor(vertexGroups: VertexGroup[], otherVectors: Vector3[]) {
+	constructor(vertexGroups: VertexGroup[], otherVectors: Vector3[], isSerializable: boolean) {
 		this.vertexGroups = vertexGroups;
 		this.otherVectors = otherVectors
+		this.isSerializable = isSerializable
 	}
 }

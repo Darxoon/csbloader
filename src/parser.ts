@@ -27,7 +27,7 @@ export function parseCSB(buffer: ArrayBuffer): CollisionBinary {
 	
 	let otherVectors = definedGroupCount == 1 ? Array.from({ length: 3 }, () => readVector3(reader)) : []
 	
-	return new CollisionBinary(groups, otherVectors)
+	return new CollisionBinary(groups, otherVectors, stringsBegin == 0x4e)
 }
 
 function findCollisionString(buffer: ArrayBuffer) {

@@ -31,7 +31,8 @@ export function serializeWavefrontObj(binary: CollisionBinary): string {
 	// serialize faces
 	for (const [group, i] of enumerate(binary.vertexGroups)) {
 		const offset = groupVertexOffsets.get(group)! + 1
-		output += `o ${i.toString().padStart(2, '0')}_${group.header.name}\n`
+		const name = group.header.name == "DEADBEEF" && binary.isSerializable ? "[mobj]_DEADBEEF" : group.header.name
+		output += `o ${i.toString().padStart(2, '0')}_${name}\n`
 		
 		if (group.faces.length == 0) {
 			output += `l ${offset} ${offset + 1}\n\n`
