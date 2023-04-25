@@ -1,4 +1,4 @@
-import { BinaryReader, Vector3 } from "./misc.js";
+import { BinaryReader, BinaryWriter, Vector3 } from "./misc.js";
 import { readVector3 } from "./util.js";
 
 export class VertexGroupHeader {
@@ -48,6 +48,31 @@ export class VertexGroupHeader {
 		
 		return header
 	}
+	
+	toBinaryWriter(writer: BinaryWriter) {
+		writer.writeInt32(this.field_0x0)
+		writer.writeInt32(this.groupIndex)
+		writer.writeInt32(this.field_0x8)
+		writer.writeInt32(this.field_0xc)
+		writer.writeInt32(this.field_0x10)
+		writer.writeInt32(this.field_0x14)
+		
+		let beforeSize = writer.size
+		writer.writeString(this.name)
+		
+		let stringSize = writer.size - beforeSize
+		writer.writeArrayBuffer(new Uint8Array(64 - stringSize).buffer)
+		
+		writer.writeInt32(this.field_0x58)
+		writer.writeInt32(this.vertexAmount)
+		writer.writeInt32(this.triAmount)
+		writer.writeInt32(this.field_0x64)
+		writer.writeInt32(this.field_0x68)
+		writer.writeInt32(this.field_0x6c)
+		writer.writeInt32(this.field_0x70)
+		writer.writeInt32(this.field_0x74)
+		writer.writeInt32(this.field_0x78)
+	}
 }
 
 export class Tri {
@@ -59,8 +84,17 @@ export class Tri {
 		this.normal = normal;
 	}
 	
+	toBinaryWriter(writer: BinaryWriter) {
+		writer.writeArrayBuffer(this.indices.buffer)
+		this.normal.toBinaryWriter(writer)
+	}
+	
 	static fromBinaryReader(reader: BinaryReader): Tri {
-		let indices = new Int32Array(Array.from({ length: 3 }, () => reader.readInt32()))
+		let indices = new Int32Array([
+			reader.readInt32(),
+			reader.readInt32(),
+			reader.readInt32(),
+		])
 		let normal = new Vector3(
 			reader.readFloat32(),
 			reader.readFloat32(),
@@ -80,6 +114,10 @@ export class BoundingBox {
 		this.high = high
 	}
 	
+	equals(other: any) {
+		return other instanceof BoundingBox && this.low.equals(other.low) && this.high.equals(other.high)
+	}
+	
 	/**
 	 * Verifies if a bounding box contains the correct coordinates.
 	 * @param vertices All vertices included in the bounding box
@@ -88,6 +126,31 @@ export class BoundingBox {
 	verifyCorrectBounds(vertices: Vector3[]): true | BoundingBox {
 		if (vertices.length == 0)
 			return true
+		
+		let verifiedBoundingBox = BoundingBox.fromVertices(vertices)!
+		
+		return this.equals(verifiedBoundingBox) || verifiedBoundingBox
+	}
+	
+	toString() {
+		return `BoundingBox(${this.low} -> ${this.high})`
+	}
+	
+	toBinaryWriter(writer: BinaryWriter) {
+		this.low.toBinaryWriter(writer)
+		this.high.toBinaryWriter(writer)
+	}
+	
+	static fromBinaryReader(reader: BinaryReader) {
+		return new BoundingBox(
+			Vector3.fromBinaryReader(reader),
+			Vector3.fromBinaryReader(reader),
+		)
+	}
+	
+	static fromVertices(vertices: Vector3[]): BoundingBox | undefined {
+		if (vertices.length == 0)
+			return undefined
 		
 		// because vector3s are immutable, this is the only way to prevent a lot of allocations
 		let smallestCoordinatesX = vertices[0].x
@@ -116,21 +179,7 @@ export class BoundingBox {
 		let smallestCoordinates = new Vector3(smallestCoordinatesX, smallestCoordinatesY, smallestCoordinatesZ)
 		let biggestCoordinates = new Vector3(biggestCoordinatesX, biggestCoordinatesY, biggestCoordinatesZ)
 		
-		let lowIsCorrect = this.low.equals(smallestCoordinates)
-		let highIsCorrect = this.high.equals(biggestCoordinates)
-		
-		return (lowIsCorrect && highIsCorrect) || new BoundingBox(smallestCoordinates, biggestCoordinates)
-	}
-	
-	toString() {
-		return `BoundingBox(${this.low} -> ${this.high})`
-	}
-	
-	static fromBinaryReader(reader: BinaryReader) {
-		return new BoundingBox(
-			Vector3.fromBinaryReader(reader),
-			Vector3.fromBinaryReader(reader),
-		)
+		return new BoundingBox(smallestCoordinates, biggestCoordinates)
 	}
 }
 
@@ -147,6 +196,35 @@ export class VertexGroup {
 		this.boundingBox = boundingBox
 		this.vertices = vertices;
 		this.faces = faces;
+	}
+	
+	toBinaryWriter(writer: BinaryWriter) {
+		this.header.toBinaryWriter(writer)
+		
+		if (this.vertices.length == 0) {
+			if (this.otherVector == undefined)
+				throw new Error("otherVector must be defined on otherwise empty vertex groups")
+			
+			Vector3.ZERO.toBinaryWriter(writer)
+			Vector3.ZERO.toBinaryWriter(writer)
+			Vector3.ZERO.toBinaryWriter(writer)
+			
+			this.otherVector.toBinaryWriter(writer)
+			this.boundingBox.toBinaryWriter(writer)
+			
+			return
+		}
+		
+		Vector3.ZERO.toBinaryWriter(writer)
+		this.boundingBox.toBinaryWriter(writer)
+		
+		for (const vertex of this.vertices) {
+			vertex.toBinaryWriter(writer)
+		}
+		
+		for (const face of this.faces) {
+			face.toBinaryWriter(writer)
+		}
 	}
 	
 	static fromBinaryReader(reader: BinaryReader) {
