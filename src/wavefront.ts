@@ -4,9 +4,10 @@ import { enumerate } from "./util.js";
 
 const DEADBEEF_MOBJ_NAME = "[mobj]_DEADBEEF"
 
-export class WavefrontError extends Error {
+export class InvalidFileError extends Error {
 	constructor(message = "", options?: ErrorOptions) {
 		super(message, options)
+		this.name = "InvalidFileError"
 	}
 }
 
@@ -29,7 +30,7 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 		)
 		
 		if (isNaN(vertex.x) || isNaN(vertex.y) || isNaN(vertex.z))
-			throw new WavefrontError(`Invalid vec3 in line ${i + 1}: ${line}`)
+			throw new InvalidFileError(`Invalid vec3 in line ${i + 1}: ${line}`)
 		
 		fileVertices.push(vertex)
 	}
@@ -45,30 +46,23 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 	// get all Wavefront objects
 	const objects: WavefrontObject[] = []
 	
-	let currentObject: string | undefined = undefined
-	let currentObjectFaces: Vector3[][] = []
-	let currentObjectOtherVector: Vector3 | undefined = undefined
+	let currentObject: WavefrontObject | undefined
 	
 	for (const [line, i] of enumerate(lines)) {
 		if (line.startsWith('o ')) {
 			if (currentObject) {
-				let index = parseInt(currentObject.slice(0, 2))
-				
-				let isMobjDeadbeef = currentObject.slice(3) == DEADBEEF_MOBJ_NAME
-				let name = isMobjDeadbeef ? "DEADBEEF" : currentObject.slice(3)
-				
-				objects.push({
-					index,
-					name,
-					isMobjDeadbeef,
-					faces: currentObjectFaces,
-					otherVector: currentObjectOtherVector,
-				})
+				objects.push(currentObject)
 			}
 			
-			currentObject = line.slice(2).trim()
-			currentObjectFaces = []
-			currentObjectOtherVector = undefined
+			let rawName = line.slice(2).trim()
+			let isMobjDeadbeef = rawName.slice(3) == DEADBEEF_MOBJ_NAME
+			
+			currentObject = {
+				index: parseInt(rawName.slice(0, 2)),
+				name: isMobjDeadbeef ? "DEADBEEF" : rawName.slice(3),
+				isMobjDeadbeef,
+				faces: [],
+			}
 			
 			continue
 		}
@@ -77,26 +71,35 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 			const vertexIndices = line.split(' ').slice(1)
 			const vertices = vertexIndices.map(str => fileVertices[parseVertexIndex(str, line, i)])
 			
-			currentObjectFaces.push(vertices)
+			if (currentObject == undefined)
+				throw new InvalidFileError(`Geometry data outside of any object in line ${i + 1}: ${line}`)
+			
+			currentObject.faces.push(vertices)
 			
 			continue
 		}
 		
 		if (line.startsWith('l ')) {
-			if (currentObjectOtherVector)
-				throw new WavefrontError(`Attempting to define the DEADBEEF vector twice in line ${i + 1}: ${line}`)
+			if (currentObject == undefined || currentObject.name != "DEADBEEF")
+				throw new InvalidFileError(`Attempting to define the DEADBEEF vector outside the DEADBEEF object in line ${i + 1}: ${line}`)
 			
-			const [a, b] = line.split(' ').slice(1).map(str => parseInt(str))
+			if (currentObject.otherVector != undefined)
+				throw new InvalidFileError(`Attempting to define the DEADBEEF vector a second time in line ${i + 1}: ${line}`)
 			
-			currentObjectOtherVector = new Vector3(
-				fileVertices[b].x - fileVertices[a].x,
-				fileVertices[b].y - fileVertices[a].y,
-				fileVertices[b].z - fileVertices[a].z,
+			const [a, b] = line.split(' ').slice(1).map(str => parseInt(str) - 1)
+			
+			currentObject.otherVector = new Vector3(
+				(fileVertices[b].x - fileVertices[a].x) / 10e40,
+				(fileVertices[b].y - fileVertices[a].y) / 10e40,
+				(fileVertices[b].z - fileVertices[a].z) / 10e40,
 			)
 			
 			continue
 		}
 	}
+	
+	if (currentObject)
+		objects.push(currentObject)
 	
 	// construct binary
 	let vertexGroups: VertexGroup[] = []
@@ -126,7 +129,7 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 			: BoundingBox.fromVertices(vertices)
 		
 		if (boundingBox == undefined)
-			throw new WavefrontError(`Could not compute bounding box for ${obj.name === "DEADBEEF" ? "the file" : obj.name}: No vertices found`)
+			throw new InvalidFileError(`Could not compute bounding box for ${obj.name === "DEADBEEF" ? "the file" : obj.name}: No vertices found`)
 		
 		vertexGroups.push(new VertexGroup(header, obj.otherVector, boundingBox, vertices, tris))
 	}
@@ -140,7 +143,7 @@ function parseVertexIndex(input: string, line: string, lineIndex: number): numbe
 	const number = parseInt(input.split('/')[0])
 	
 	if (isNaN(number))
-		throw new WavefrontError(`Invalid vertex index ${JSON.stringify(input)} in line ${lineIndex + 1}: ${line}`)
+		throw new InvalidFileError(`Invalid vertex index ${JSON.stringify(input)} in line ${lineIndex + 1}: ${line}`)
 	
 	// wavefront obj uses 1-indexing, function converts it to 0-indexing
 	return number - 1
@@ -158,7 +161,7 @@ export function serializeWavefrontObj(binary: CollisionBinary): string {
 		
 		if (group.vertices.length == 0) {
 			if (group.otherVector == undefined)
-				throw new WavefrontError("No other vector specified for otherwise empty vertex group")
+				throw new InvalidFileError("No other vector specified for otherwise empty vertex group")
 			
 			output += `v 0 0 0\nv ${group.otherVector.x * 10e40} ${group.otherVector.y * 10e40} ${group.otherVector.z * 10e40}\n`
 			totalVertexCount += 2

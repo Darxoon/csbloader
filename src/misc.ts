@@ -23,6 +23,38 @@ export class Vector3 {
 		return x == this._x && y == this._y && z == this._z
 	}
 	
+	add(other: Vector3) {
+		return new Vector3(
+			this._x + other._x,
+			this._y + other._y,
+			this._z + other._z,
+		)
+	}
+	
+	subtract(other: Vector3) {
+		return new Vector3(
+			this._x - other._x,
+			this._y - other._y,
+			this._z - other._z,
+		)
+	}
+	
+	dot(other: Vector3) {
+		return new Vector3(
+			this._x * other._x,
+			this._y * other._y,
+			this._z * other._z,
+		)
+	}
+	
+	cross(other: Vector3) {
+		return new Vector3(
+			this._y * other._z - this._z * other._y,
+			this._z * other._x - this._x * other._z,
+			this._x * other._y - this._y * other._x,
+		)
+	}
+	
 	get x() {
 		return this._x
 	}
