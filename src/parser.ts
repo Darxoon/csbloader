@@ -7,9 +7,17 @@ export function parseCSB(buffer: ArrayBuffer): CollisionBinary {
 	// skip long and weird header and skip to the string section
 	let stringsBegin = findCollisionString(buffer)
 	
-	let reader = new BinaryReader(buffer, stringsBegin, true)
+	let reader = new BinaryReader(buffer)
+	
+	reader.position = 0x28
+	
+	if (reader.readInt32() != 1) {
+		console.warn("Warning: File is not serializable, header is larger than expected.\n")
+	}
 	
 	// skip forward to the end of the string section
+	reader.position = stringsBegin
+	
 	while (true) {
 		if (reader.readInt16() == 0 && reader.readInt8() == 0)
 			break
@@ -17,17 +25,26 @@ export function parseCSB(buffer: ArrayBuffer): CollisionBinary {
 			reader.position -= 1
 	}
 	
-	reader.position -= 3
-	reader.alignTo(4)
-	
-	let vertexGroupCount = reader.readInt32() >> 16
+	let vertexGroupCount = reader.readInt16()
 	let definedGroupCount = countDefinedGroups(reader, vertexGroupCount)
+	
+	if (reader.readInt32() != 3) {
+		throw new Error("Invalid file, invalid beginning of vertex group")
+	}
+	
+	reader.position -= 4
 	
 	let groups = Array.from({ length: definedGroupCount }, () => VertexGroup.fromBinaryReader(reader))
 	
+	let nonSerializableGroup = groups.find(group => group.isSerializable !== true)
 	let otherVectors = definedGroupCount == 1 ? Array.from({ length: 3 }, () => readVector3(reader)) : []
 	
-	return new CollisionBinary(groups, otherVectors, stringsBegin == 0x4e)
+	if (nonSerializableGroup) {
+		console.warn(`Warning: File is not serializable, issue in Vertex Group ${JSON.stringify(nonSerializableGroup.header.groupName)}:`)
+		console.warn((nonSerializableGroup.isSerializable as Error).message + "\n")
+	}
+	
+	return new CollisionBinary(groups, otherVectors, stringsBegin == 0x4e && nonSerializableGroup == undefined)
 }
 
 function findCollisionString(buffer: ArrayBuffer) {

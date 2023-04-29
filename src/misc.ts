@@ -23,22 +23,6 @@ export class Vector3 {
 		return x == this._x && y == this._y && z == this._z
 	}
 	
-	add(other: Vector3) {
-		return new Vector3(
-			this._x + other._x,
-			this._y + other._y,
-			this._z + other._z,
-		)
-	}
-	
-	subtract(other: Vector3) {
-		return new Vector3(
-			this._x - other._x,
-			this._y - other._y,
-			this._z - other._z,
-		)
-	}
-	
 	dot(other: Vector3) {
 		return new Vector3(
 			this._x * other._x,
@@ -55,6 +39,14 @@ export class Vector3 {
 		)
 	}
 	
+	magnitude() {
+		return Math.sqrt(this._x ** 2 + this._y ** 2 + this._z ** 2)
+	}
+	
+	normalized() {
+		return Vector3.div(this, this.magnitude())
+	}
+	
 	get x() {
 		return this._x
 	}
@@ -67,6 +59,12 @@ export class Vector3 {
 		return this._z
 	}
 	
+	toBinaryWriter(writer: BinaryWriter) {
+		writer.writeFloat32(this._x)
+		writer.writeFloat32(this._y)
+		writer.writeFloat32(this._z)
+	}
+	
 	static ZERO = new Vector3(0, 0, 0)
 	
 	static fromBinaryReader(reader: BinaryReader) {
@@ -77,10 +75,36 @@ export class Vector3 {
 		)
 	}
 	
-	toBinaryWriter(writer: BinaryWriter) {
-		writer.writeFloat32(this._x)
-		writer.writeFloat32(this._y)
-		writer.writeFloat32(this._z)
+	static add(a: Vector3, b: Vector3) {
+		return new Vector3(
+			a._x + b._x,
+			a._y + b._y,
+			a._z + b._z,
+		)
+	}
+	
+	static sub(a: Vector3, b: Vector3) {
+		return new Vector3(
+			a._x - b._x,
+			a._y - b._y,
+			a._z - b._z,
+		)
+	}
+	
+	static mult(vec: Vector3, scalar: number) {
+		return new Vector3(
+			vec._x * scalar,
+			vec._y * scalar,
+			vec._z * scalar,
+		)
+	}
+	
+	static div(vec: Vector3, scalar: number) {
+		return new Vector3(
+			vec._x / scalar,
+			vec._y / scalar,
+			vec._z / scalar,
+		)
 	}
 }
 

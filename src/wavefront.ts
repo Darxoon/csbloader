@@ -36,10 +36,9 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 	}
 	
 	interface WavefrontObject {
-		index: number
-		name: string
+		label: string
 		isMobjDeadbeef: boolean
-		faces: Vector3[][]
+		faces: number[][]
 		otherVector?: Vector3
 	}
 	
@@ -54,12 +53,11 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 				objects.push(currentObject)
 			}
 			
-			let rawName = line.slice(2).trim()
-			let isMobjDeadbeef = rawName.slice(3) == DEADBEEF_MOBJ_NAME
+			let label = line.slice(2).trim()
+			let isMobjDeadbeef = label == "00_" + DEADBEEF_MOBJ_NAME
 			
 			currentObject = {
-				index: parseInt(rawName.slice(0, 2)),
-				name: isMobjDeadbeef ? "DEADBEEF" : rawName.slice(3),
+				label: isMobjDeadbeef ? "00_DEADBEEF" : label,
 				isMobjDeadbeef,
 				faces: [],
 			}
@@ -69,7 +67,7 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 		
 		if (line.startsWith('f ')) {
 			const vertexIndices = line.split(' ').slice(1)
-			const vertices = vertexIndices.map(str => fileVertices[parseVertexIndex(str, line, i)])
+			const vertices = vertexIndices.map(str => parseVertexIndex(str, line, i))
 			
 			if (currentObject == undefined)
 				throw new InvalidFileError(`Geometry data outside of any object in line ${i + 1}: ${line}`)
@@ -80,7 +78,7 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 		}
 		
 		if (line.startsWith('l ')) {
-			if (currentObject == undefined || currentObject.name != "DEADBEEF")
+			if (currentObject == undefined || !currentObject.label.slice(3).startsWith("DEADBEEF"))
 				throw new InvalidFileError(`Attempting to define the DEADBEEF vector outside the DEADBEEF object in line ${i + 1}: ${line}`)
 			
 			if (currentObject.otherVector != undefined)
@@ -105,12 +103,17 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 	let vertexGroups: VertexGroup[] = []
 	
 	for (const obj of objects) {
-		let vertices = [...new Set(obj.faces.flat())]
+		const name = obj.label.slice(3, obj.label.includes(' ') ? obj.label.indexOf(' ') : undefined)
+		
+		let vertexIndices = [...new Set(obj.faces.flat())].sort((a, b) => a - b)
+		let vertices = vertexIndices.map(index => fileVertices[index])
+		
 		let tris = obj.faces.map(faceVerts => {
-			let faceIndices = faceVerts.map(vertex => vertices.indexOf(vertex))
+			let verts = faceVerts.map(index => fileVertices[index])
+			let faceIndices = faceVerts.map(vertex => vertexIndices.indexOf(vertex))
 			
-			// (v1 - v0) cross (v2 - v0), where v0, v1 and v2 are the elements of the face
-			let faceNormal = faceVerts[1].subtract(faceVerts[0]).cross(faceVerts[2].subtract(faceVerts[0]))
+			// (v1 - v0) x (v2 - v0), normalized, where v0, v1 and v2 are the elements of the face
+			let faceNormal = Vector3.sub(verts[1], verts[0]).cross(Vector3.sub(verts[2], verts[0])).normalized()
 			
 			return new Tri(
 				new Int32Array(faceIndices),
@@ -118,20 +121,23 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 			)
 		})
 		
-		let header = new VertexGroupHeader()
-		header.name = obj.name
-		header.groupIndex = obj.index
-		header.vertexAmount = vertices.length
-		header.triAmount = tris.length
+		let header = VertexGroupHeader.fromString(obj.label, vertexIndices.length, tris.length)
 		
-		let boundingBox = obj.name === "DEADBEEF"
-			? BoundingBox.fromVertices(fileVertices)
+		if (header == undefined) {
+			throw new InvalidFileError(`Invalid object name ${JSON.stringify(obj.label)}, \
+expected a string of this pattern: "01_Name [a:b:c:d]", where 01 could be any two-digit number, \
+Name is the name of the vertex group and a, b, c and d are hexadecimal numbers for metadata \
+or left empty for the value 0.`)
+		}
+		
+		let boundingBox = name === "DEADBEEF"
+			? BoundingBox.fromVertices(fileVertices.slice(2)) // item 1 contains otherVector
 			: BoundingBox.fromVertices(vertices)
 		
 		if (boundingBox == undefined)
-			throw new InvalidFileError(`Could not compute bounding box for ${obj.name === "DEADBEEF" ? "the file" : obj.name}: No vertices found`)
+			throw new InvalidFileError(`Could not compute bounding box for ${name === "DEADBEEF" ? "the file" : name}: No vertices found`)
 		
-		vertexGroups.push(new VertexGroup(header, obj.otherVector, boundingBox, vertices, tris))
+		vertexGroups.push(new VertexGroup(name != "DEADBEEF", header, boundingBox, vertices, tris, obj.otherVector))
 	}
 	
 	let isSerializable = objects.find(obj => obj.isMobjDeadbeef) != undefined
@@ -177,10 +183,11 @@ export function serializeWavefrontObj(binary: CollisionBinary): string {
 	output += "\n"
 	
 	// serialize faces
-	for (const [group, i] of enumerate(binary.vertexGroups)) {
+	for (const group of binary.vertexGroups) {
 		const offset = groupVertexOffsets.get(group)! + 1
-		const name = group.header.name == "DEADBEEF" && binary.isSerializable ? DEADBEEF_MOBJ_NAME : group.header.name
-		output += `o ${i.toString().padStart(2, '0')}_${name}\n`
+		const applyCustomDeadbeefName = group.header.groupName == "DEADBEEF" && binary.isSerializable
+		
+		output += `o ${group.header.toString(applyCustomDeadbeefName ? DEADBEEF_MOBJ_NAME : undefined)}\n`
 		
 		if (group.faces.length == 0) {
 			output += `l ${offset} ${offset + 1}\n\n`
