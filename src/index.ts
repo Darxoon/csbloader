@@ -38,7 +38,6 @@ import { parseArgs } from "util";
 		exit()
 	}
 	
-	console.log(positionals)
 	const [method, input, output] = positionals
 	
 	if (positionals.length != 3 || !['extract', 'build', '_debug'].includes(method)) {
