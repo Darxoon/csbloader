@@ -12,7 +12,7 @@ export function parseCSB(buffer: ArrayBuffer): CollisionBinary {
 	reader.position = 0x28
 	
 	if (reader.readInt32() != 1) {
-		console.warn("Warning: File is not serializable, header is larger than expected.\n")
+		console.warn("Warning: File is not serializable: Header is larger than expected.\n")
 	}
 	
 	// skip forward to the end of the string section
