@@ -29,7 +29,7 @@ Type ```npm install && tsc && npm link``` to build the program and have access t
 If you have csbloader v1.0 installed already, updating is easy.
 
 To update, open a Command Prompt, Git Bash or Shell in the csbloader directory and run this:
-```git pull && tsc```. Now you have the latest version installed.
+```git pull && npm install && tsc```. Now you have the latest version installed.
 
 ## Contact
 
