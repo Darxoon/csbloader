@@ -24,9 +24,9 @@ Open the Command Prompt, Git Bash or a Shell in a convenient location (not Power
 
 Type ```npm install && tsc && npm link``` to build the program and have access to the csbloader command at all times in any location in the command line.
 
-## Updating from Version 1.0
+## Updating from a previous version
 
-If you have csbloader v1.0 installed already, updating is easy.
+If you have csbloader installed already and want to update, you can follow these instructions.
 
 To update, open a Command Prompt, Git Bash or Shell in the csbloader directory and run this:
 ```git pull && tsc```. Now you have the latest version installed.

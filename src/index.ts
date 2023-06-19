@@ -34,7 +34,7 @@ import { parseArgs } from "util";
 	}
 	
 	if (values.version) {
-		console.log('v2.0')
+		console.log('v2.0.1')
 		exit()
 	}
 	

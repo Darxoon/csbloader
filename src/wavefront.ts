@@ -78,11 +78,11 @@ export function parseWavefrontObj(file: string): CollisionBinary {
 		}
 		
 		if (line.startsWith('l ')) {
-			if (currentObject == undefined || !currentObject.label.slice(3).startsWith("DEADBEEF"))
-				throw new InvalidFileError(`Attempting to define the DEADBEEF vector outside the DEADBEEF object in line ${i + 1}: ${line}`)
-			
-			if (currentObject.otherVector != undefined)
-				throw new InvalidFileError(`Attempting to define the DEADBEEF vector a second time in line ${i + 1}: ${line}`)
+			if (currentObject == undefined || !currentObject.label.slice(3).startsWith("DEADBEEF") || currentObject.otherVector != undefined)
+				throw new InvalidFileError(`\
+Found a single floating edge in object ${currentObject?.label}; \
+edges cannot be represented in csb files and need to be deleted manually \
+(with the exception of the special vector in DEADBEEF). Found in line ${i + 1}: ${line}`)
 			
 			const [a, b] = line.split(' ').slice(1).map(str => parseInt(str) - 1)
 			
